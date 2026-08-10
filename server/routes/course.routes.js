@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as courseController from '../controllers/course.controller.js';
+import * as catalogController from '../controllers/courseCatalog.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { authorize } from '../middleware/role.middleware.js';
 import { requireOwnership } from '../middleware/ownership.middleware.js';
@@ -17,7 +18,9 @@ const courseOwnership = requireOwnership({
 });
 
 // --- Public / any authenticated user -------------------------------------
-router.get('/', verifyToken, courseController.listPublishedCourses);
+// Get All Courses + Search + Filter: all handled by one query-param-driven
+// endpoint rather than separate routes (e.g. GET /courses?search=react&level=beginner&sort=price_low).
+router.get('/', catalogController.getAllCourses);
 
 // --- Instructor: own courses ----------------------------------------------
 router.get(
@@ -26,6 +29,10 @@ router.get(
     authorize('instructor', 'admin'),
     courseController.listMyCourses
 );
+
+// Course Details — must be registered after '/mine' so that literal
+// path isn't swallowed by this dynamic :courseId segment.
+router.get('/:courseId', verifyToken, catalogController.getCourseDetails);
 
 router.post(
     '/',

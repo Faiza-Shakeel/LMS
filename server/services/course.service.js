@@ -14,7 +14,11 @@ export async function createCourse({ instructorId, categoryId, title, slug, desc
         .select()
         .single();
 
-    if (error) throw error;
+    if (error){
+throw error;
+console.error('Error creating course:', error);
+    } ;
+   
     return data;
 }
 
@@ -25,20 +29,14 @@ export async function listCoursesForInstructor(instructorId) {
         .eq('instructor_id', instructorId)
         .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error){
+throw error;
+console.error('Error listing courses for instructor:', error);
+    } 
     return data;
 }
 
-export async function listPublishedCourses() {
-    const { data, error } = await supabaseAdmin
-        .from('courses')
-        .select('*')
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data;
-}
 
 export async function updateCourse(courseId, updates) {
     const { data, error } = await supabaseAdmin
@@ -48,13 +46,19 @@ export async function updateCourse(courseId, updates) {
         .select()
         .single();
 
-    if (error) throw error;
+    if (error){
+throw error;
+console.error('Error updating course:', error);
+    } ;
     return data;
 }
 
 export async function deleteCourse(courseId) {
     const { error } = await supabaseAdmin.from('courses').delete().eq('id', courseId);
-    if (error) throw error;
+    if (error) {
+        throw error;
+        console.error('Error deleting course:', error);
+    }
 }
 
 export async function createSection(courseId, { title, position }) {
@@ -64,6 +68,9 @@ export async function createSection(courseId, { title, position }) {
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        throw error;
+        console.error('Error creating section:', error);
+    }
     return data;
 }

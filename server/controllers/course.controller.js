@@ -35,14 +35,6 @@ export async function listMyCourses(req, res, next) {
     }
 }
 
-export async function listPublishedCourses(req, res, next) {
-    try {
-        const courses = await courseService.listPublishedCourses();
-        res.status(200).json({ courses });
-    } catch (err) {
-        next(err);
-    }
-}
 
 /**
  * req.resource is already populated by the requireOwnership middleware —
@@ -88,6 +80,7 @@ export async function createSection(req, res, next) {
         res.status(201).json({ section });
     } catch (err) {
         next(err);
+        console.error('Error creating section:', err);
     }
 }
 
