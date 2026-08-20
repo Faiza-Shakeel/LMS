@@ -7,21 +7,6 @@ import { supabaseAnon, supabaseAdmin } from '../config/supabaseClient.js';
  * (defaulted to the 'student' role).
  */
 export async function signUp({ email, password, firstName, lastName }) {
-      // Check if email already exists in your users table
-    const { data: existingUser, error: checkError } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-    if (checkError) {
-        throw checkError;
-    }
-
-    if (existingUser) {
-        throw new Error('User already exists.');
-    }
-
     const { data, error } = await supabaseAnon.auth.signUp({
         email,
         password,
@@ -51,70 +36,7 @@ export async function signIn({ email, password }) {
     if (error) throw error;
     return data;
 }
-export async function createInstructor({
-    email,
-    password,
-    firstName,
-    lastName,
-}) {
-    // 1. Check if instructor role exists
-    const { data: instructorRole, error: roleError } = await supabaseAdmin
-        .from('roles')
-        .select('id')
-        .eq('name', 'instructor')
-        .single();
 
-    if (roleError) {
-          console.error("Role Error:", roleError);
-        throw new Error('Instructor role not found.');
-    }
-
-    // 2. Check if user already exists
-    const { data: existingUser } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-    if (existingUser) {
-        throw new Error('User already exists.');
-    }
-
-    // 3. Create auth user
-    const { data: authData, error: authError } =
-        await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            user_metadata: {
-                first_name: firstName,
-                last_name: lastName,
-            },
-        });
-
-    if (authError) {
-        console.error('Error creating auth user:', authError);
-        throw authError;
-    }
-    // 4. Insert into users table
-    const { data: user, error: insertError } = await supabaseAdmin
-    .from('users')
-    .update({
-        first_name: firstName,
-        last_name: lastName,
-        role_id: instructorRole.id,
-    })
-    .eq('id', authData.user.id);
-
-    if (insertError) {
-        // Roll back auth user
-       
-         console.error("Insert Error:", insertError);
-        throw insertError;
-    }
-
-    return user;
-}
 /**
  * Revokes the session tied to the given access token.
  */
@@ -162,26 +84,60 @@ export async function getUserProfile(userId) {
 }
 
 /**
-//  * Admin-only operation: changes a user's role by name
-//  * ('admin' | 'instructor' | 'student'). Caller must already be
-//  * authorized as admin — this function does not check that itself.
-//  */
-// export async function updateUserRole(userId, roleName) {
-//     const { data: role, error: roleError } = await supabaseAdmin
-//         .from('roles')
-//         .select('id')
-//         .eq('name', roleName)
-//         .single();
+ * Triggers Supabase's built-in password recovery email. redirectTo must
+ * be an allowed redirect URL in your Supabase project's Auth settings
+ * (Dashboard → Authentication → URL Configuration), or Supabase will
+ * reject it. Supabase itself doesn't reveal whether the email exists —
+ * it responds the same way either way — which is what lets the
+ * frontend show a generic "if an account exists..." message safely.
+ */
+export async function forgotPassword(email, redirectTo) {
+    const { error } = await supabaseAnon.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+}
 
-//     if (roleError || !role) throw new Error(`Unknown role: ${roleName}`);
+/**
+ * Completes a password reset using the access token Supabase issues in
+ * the recovery email link. Deliberately does NOT use supabaseAnon's
+ * setSession() here — that would mutate the shared client's session
+ * state, which is unsafe on a server handling concurrent requests from
+ * different users. getUser(accessToken) is stateless/read-only, so it's
+ * safe to call on the shared client; the actual password change goes
+ * through supabaseAdmin, which can update any user by id directly.
+ */
+export async function resetPassword({ accessToken, password }) {
+    const { data, error } = await supabaseAnon.auth.getUser(accessToken);
+    if (error || !data?.user) {
+        throw new Error('Invalid or expired reset link');
+    }
 
-//     const { data, error } = await supabaseAdmin
-//         .from('users')
-//         .update({ role_id: role.id })
-//         .eq('id', userId)
-//         .select('id, first_name, last_name, email, role_id')
-//         .single();
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+        password,
+    });
+    if (updateError) throw updateError;
+}
 
-//     if (error) throw error;
-//     return data;
-// }
+/**
+ * Admin-only operation: changes a user's role by name
+ * ('admin' | 'instructor' | 'student'). Caller must already be
+ * authorized as admin — this function does not check that itself.
+ */
+export async function updateUserRole(userId, roleName) {
+    const { data: role, error: roleError } = await supabaseAdmin
+        .from('roles')
+        .select('id')
+        .eq('name', roleName)
+        .single();
+
+    if (roleError || !role) throw new Error(`Unknown role: ${roleName}`);
+
+    const { data, error } = await supabaseAdmin
+        .from('users')
+        .update({ role_id: role.id })
+        .eq('id', userId)
+        .select('id, first_name, last_name, email, role_id')
+        .single();
+
+    if (error) throw error;
+    return data;
+}

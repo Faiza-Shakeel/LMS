@@ -45,7 +45,6 @@ export async function signIn(req, res, next) {
     }
 }
 
-
 export async function signOut(req, res, next) {
     try {
         const authHeader = req.headers.authorization;
@@ -56,6 +55,47 @@ export async function signOut(req, res, next) {
         res.status(200).json({ message: 'Signed out successfully' });
     } catch (err) {
         next(err);
+    }
+}
+
+export async function forgotPassword(req, res, next) {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'email is required' });
+        }
+
+        const redirectTo = `${process.env.FRONTEND_URL}/auth/reset-password`;
+        await authService.forgotPassword(email, redirectTo);
+
+        // Always return the same generic response, whether or not the
+        // email actually belongs to an account — prevents email
+        // enumeration via response differences.
+        res.status(200).json({
+            message: 'If an account exists for that email, a reset link has been sent.',
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function resetPassword(req, res, next) {
+    try {
+        const { token, password } = req.body;
+
+        if (!token || !password) {
+            return res.status(400).json({ error: 'token and password are required' });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ error: 'password must be at least 8 characters' });
+        }
+
+        await authService.resetPassword({ accessToken: token, password });
+
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Could not reset password. The link may have expired.' });
     }
 }
 

@@ -6,6 +6,7 @@ import adminRoutes from './routes/admin.routes.js';
 import courseRoutes from './routes/course.routes.js';
 import sectionRoutes from './routes/section.routes.js';
 import enrollmentRoutes from './routes/enrollment.routes.js';
+import lessonRoutes from './routes/lesson.routes.js';
 const app = express();
 
 
